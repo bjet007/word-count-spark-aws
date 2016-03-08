@@ -1,13 +1,17 @@
 package org.bjean.sample.wordcount.input;
 
+import java.util.Random;
+import java.util.StringJoiner;
+
 public class DocumentGenerator {
-    
-    
-    public static void main(String[] args){
-        
+
+    private final Random random = new Random();
+
+    public static void main(String[] args) {
+
     }
+
     
-    public String nextWord(){
-        return "";
-    }
+
+    
 }
