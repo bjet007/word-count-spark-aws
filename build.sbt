@@ -34,7 +34,8 @@ val processing = Project("processing", file("processing"))
 val inputGenerator = Project("input-generator", file("input-generator"))
     .settings(
       libraryDependencies ++= commonTestDependencies ++ Seq(
-        "org.apache.commons" % "commons-lang3" % "3.4"
+        "org.apache.commons" % "commons-lang3" % "3.4",
+        "com.vtence.cli"%"cli"%"1.1"
       ),
       mainClass in Compile := Some("org.bjean.sample.wordcount.input.DocumentGenerator")
     )
