@@ -20,21 +20,21 @@ def publishFatJar() = Seq(
 )
 
 lazy val sparkDependencies = Seq(
-  "org.apache.spark" %% "spark-core" % "1.6.0" % "provided"
+  ("org.apache.spark" %% "spark-core" % "1.5.2" % "provided")
 )
 
 val processing = Project("processing", file("processing"))
   .settings(
     libraryDependencies ++= sparkDependencies ++ commonTestDependencies ++ Seq(
     ),
-    mainClass in Compile := Some("org.bjean.sample.wordcount.processing.WordCount")
+    mainClass in Compile := Some("org.bjean.sample.wordcount.processing.WordCountProcessor")
   )
   .settings(publishFatJar : _*)
 
 val inputGenerator = Project("input-generator", file("input-generator"))
     .settings(
       libraryDependencies ++= commonTestDependencies ++ Seq(
-        "org.apache.commons" % "commons-lang3" % "3.4",
+        "org.apache.commons" % "commons-lang3" % "3.3.2",
         "com.vtence.cli"%"cli"%"1.1"
       ),
       mainClass in Compile := Some("org.bjean.sample.wordcount.input.DocumentGenerator")
