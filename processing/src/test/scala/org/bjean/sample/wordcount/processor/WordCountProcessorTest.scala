@@ -1,10 +1,7 @@
 package org.bjean.sample.wordcount.processor
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
-
-import com.typesafe.config.Config
-import org.apache.commons.lang.SystemUtils
 import org.apache.spark.SparkContext
 import org.bjean.sample.support.SparkContextTrait
 import org.scalatest.{BeforeAndAfter, Matchers, WordSpec}
@@ -22,6 +19,7 @@ class WordCountProcessorTest extends WordSpec with Matchers with SparkContextTra
 
   "Running WordCountProcessor" should {
     "output correct count for single word" in testForUseCase("single")
+    "output correct count for multiple words" in testForUseCase("multiple")
    }
 
   def inputFilePath(name: String) = getClass.getResource(s"/input/${name}.txt").getPath
@@ -30,7 +28,7 @@ class WordCountProcessorTest extends WordSpec with Matchers with SparkContextTra
   def testForUseCase(usecase: String, withRawSessionPathArgs: Boolean = true) = withSparkContext("a_spark_ctx") { (ctx: SparkContext) =>
     val expectedOutput = Source.fromInputStream(getClass.getClassLoader.getResourceAsStream(s"expected_output/${usecase}.txt")).toList
 
-    val args = Map("input" -> inputFilePath(usecase), "output" -> outputPath)
+    val args = Map("input" -> inputFilePath(usecase), "output" -> outputPath, "wordLength" -> "4")
    
     val job = new WordCountProcessor(ctx, args)
     job.runJob()
