@@ -3,10 +3,10 @@ package org.bjean.sample.wordcount.processor
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
-class WordCountProcessor(val sparkContext: SparkContext, val args: Map[String, String]) {
+class WordCountProcessor(val sparkContext: SparkContext, val config:Config) {
   def runJob(): Unit = {
-    val textFile = sparkContext.textFile(args.get("input").get)
-    val wordLength = args.get("wordLength").map(_.toInt).get
+    val textFile = sparkContext.textFile(config.input)
+    val wordLength = config.wordLength
 
     val words: RDD[String] = textFile.flatMap(line => line.split(" "))
       .flatMap(word => WordSplitter.splitWord(word, wordLength))
@@ -14,7 +14,7 @@ class WordCountProcessor(val sparkContext: SparkContext, val args: Map[String, S
       .map(subWord => (subWord, 1))
       .reduceByKey(_ + _)
 
-    counts.map(tuple => s"${tuple._1}\t${tuple._2}").coalesce(1).saveAsTextFile(args.get("output").get)
+    counts.map(tuple => s"${tuple._1}\t${tuple._2}").coalesce(1).saveAsTextFile(config.output)
   }
 
 

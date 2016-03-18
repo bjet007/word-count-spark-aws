@@ -2,6 +2,7 @@ scalaVersion in ThisBuild := "2.11.7"
 
 
 val jacksonVersion = "2.4.4"//!!!!Need to Match Spark Version
+resolvers += Resolver.sonatypeRepo("public")
 
 lazy val commonTestDependencies = Seq(
   "org.scalatest" %% "scalatest" % "2.1.7" % Test
@@ -26,8 +27,9 @@ lazy val sparkDependencies = Seq(
 val processing = Project("processing", file("processing"))
   .settings(
     libraryDependencies ++= sparkDependencies ++ commonTestDependencies ++ Seq(
+      "com.github.scopt" %% "scopt" % "3.4.0"
     ),
-    mainClass in Compile := Some("org.bjean.sample.wordcount.processing.WordCountProcessor")
+    mainClass in Compile := Some("org.bjean.sample.wordcount.processor.WordCountApp")
   )
   .settings(publishFatJar : _*)
 

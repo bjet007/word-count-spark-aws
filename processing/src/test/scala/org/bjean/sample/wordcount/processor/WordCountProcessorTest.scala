@@ -28,7 +28,7 @@ class WordCountProcessorTest extends WordSpec with Matchers with SparkContextTra
   def testForUseCase(usecase: String, withRawSessionPathArgs: Boolean = true) = withSparkContext("a_spark_ctx") { (ctx: SparkContext) =>
     val expectedOutput = Source.fromInputStream(getClass.getClassLoader.getResourceAsStream(s"expected_output/${usecase}.txt")).toList
 
-    val args = Map("input" -> inputFilePath(usecase), "output" -> outputPath, "wordLength" -> "4")
+    val args = Config(inputFilePath(usecase), outputPath,4)
    
     val job = new WordCountProcessor(ctx, args)
     job.runJob()
