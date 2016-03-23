@@ -43,7 +43,19 @@ val inputGenerator = Project("input-generator", file("input-generator"))
     )
     .settings(publishFatJar : _*)
 
+
+val awsLauncher = Project("aws-launcher", file("aws-launcher"))
+  .settings(
+    libraryDependencies ++= sparkDependencies ++ commonTestDependencies ++ Seq(
+      "com.amazonaws"       % "aws-java-sdk" % "1.9.+",
+      "com.github.scopt" %% "scopt" % "3.4.0",
+      "com.google.guava" % "guava-testlib" % "16.0.1" % "test"
+    ),
+    mainClass in Compile := Some("org.bjean.sample.wordcount.aws.AwsLauncher")
+  )
+  .settings(publishFatJar : _*)
+
 val root = Project("word-count-spark-aws", file("."))
   .disablePlugins(AssemblyPlugin)
   .settings(noPublish: _*)
-  .aggregate(inputGenerator,processing)
+  .aggregate(inputGenerator,processing,awsLauncher)
