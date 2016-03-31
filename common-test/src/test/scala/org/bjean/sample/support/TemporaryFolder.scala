@@ -2,7 +2,7 @@ package org.bjean.sample.support
 
 import java.io.File
 
-import org.scalatest.{Outcome, SuiteMixin, Suite}
+import org.scalatest.{Outcome, Suite, SuiteMixin}
 
 trait TemporaryFolder extends SuiteMixin {
   this: Suite =>
