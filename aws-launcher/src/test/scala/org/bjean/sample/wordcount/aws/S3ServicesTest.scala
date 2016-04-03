@@ -1,7 +1,7 @@
 package org.bjean.sample.wordcount.aws
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 import java.time.ZoneOffset.UTC
 import java.time.{Clock, LocalDateTime}
 
@@ -9,15 +9,19 @@ import com.amazonaws.AmazonClientException
 import com.amazonaws.services.s3.transfer.{Download, TransferManager, Upload}
 import com.typesafe.config.Config
 import org.bjean.sample.support.TemporaryFolder
+import org.bjean.sample.wordcount.aws.support.ScalaTestFutureHelper._
 import org.mockito.Matchers
 import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mock.MockitoSugar
 
+import scala.concurrent.ExecutionContext.Implicits.global
 
-class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
+
+class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder with ScalaFutures {
 
   trait TestSets {
     val clock: Clock = Clock.fixed(LocalDateTime.of(2015, 3, 22, 14, 56, 13).atZone(UTC).toInstant, UTC)
@@ -28,9 +32,9 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
     val transferManager = mock[TransferManager]
     val sparkS3Services = new S3Services(transferManager, config, clock)
 
-    when(config.getInt("aws.fs.s3.upload.maxattempt")).thenReturn(2)
-    when(config.getString("aws.fs.s3.bucket")).thenReturn("my-bucket")
-    when(config.getString("aws.fs.s3.execution.dir.prefix")).thenReturn("spark/execution/")
+    when(config.getInt("aws.s3.upload.maxAttempt")).thenReturn(2)
+    when(config.getString("aws.s3.bucket")).thenReturn("my-bucket")
+    when(config.getString("aws.s3.execution.dir.prefix")).thenReturn("spark/execution/")
 
   }
 
@@ -38,9 +42,11 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
     new TestSets {
       when(transferManager.upload("my-bucket", "spark/execution/201503221456/myfile", new File("myfile"))).thenReturn(fileUpload)
 
-      val s3File = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
+      val futureResult = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
 
-      s3File should be(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile"))
+      whenReady(futureResult) { s3File =>
+        s3File should be(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile"))
+      }
       verify(fileUpload).waitForCompletion()
       verify(transferManager).upload(any[String], any[String], any[File])
     }
@@ -53,7 +59,7 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
       sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
 
       verify(transferManager).upload(Matchers.eq("my-bucket"), any[String], any[File])
-      verify(config).getString("aws.fs.s3.bucket")
+      verify(config).getString("aws.s3.bucket")
     }
   }
 
@@ -61,10 +67,12 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
     new TestSets {
       when(transferManager.upload(any[String], Matchers.eq("spark/execution/201503221456/myfile"), any[File])).thenReturn(fileUpload)
 
-      sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
+      val futureResult = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
 
-      verify(transferManager).upload(any[String], Matchers.eq("spark/execution/201503221456/myfile"), any[File])
-      verify(config).getString("aws.fs.s3.execution.dir.prefix")
+      whenReady(futureResult) { s3File =>
+        verify(transferManager).upload(any[String], Matchers.eq("spark/execution/201503221456/myfile"), any[File])
+        verify(config).getString("aws.s3.execution.dir.prefix")
+      }
 
     }
   }
@@ -75,11 +83,13 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
         thenThrow(new AmazonClientException("")).
         thenReturn(fileUpload)
 
-      val s3File = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
-      
-      s3File should be(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile"))
-      verify(fileUpload).waitForCompletion()
-      verify(transferManager, times(2)).upload(any[String], any[String], any[File])
+      val futureResult = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
+      whenReady(futureResult) { s3File =>
+        s3File should be(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile"))
+        verify(fileUpload).waitForCompletion()
+        verify(transferManager, times(2)).upload(any[String], any[String], any[File])
+
+      }
     }
 
   }
@@ -89,14 +99,14 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
       when(transferManager.upload("my-bucket", "spark/execution/201503221456/myfile", new File("myfile"))).
         thenThrow(new AmazonClientException("")).
         thenThrow(new AmazonClientException(""))
-      
-      intercept[AmazonClientException] {
-        sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
-      }
-      
+
+      val future = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
+
+
+      future.failing[AmazonClientException]
       verifyNoMoreInteractions(fileUpload)
-      verify(transferManager, times(2)).upload(any[String], any[String], any[File])
-      verify(config).getInt("aws.fs.s3.upload.maxattempt")
+      verify(transferManager, times(3)).upload(any[String], any[String], any[File])
+      verify(config).getInt("aws.s3.upload.maxAttempt")
     }
 
   }
@@ -104,32 +114,14 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder {
   it should " download a file to a local path" in {
     new TestSets {
       when(transferManager.download("my-bucket", "spark/execution/201503221456/myfile/part-00000", new File("myfile"))).thenReturn(fileDownload)
-     
-      sparkS3Services.copyResultToLocalPath(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile/part-00000"), Paths.get("myfile"))
-     
-      verify(fileDownload).waitForCompletion()
-      verify(transferManager).download(any[String], any[String], any[File])
-    }
 
-  }
+      val futureResult = sparkS3Services.copyResultToLocalPath(S3NativeFile("my-bucket", "spark/execution/201503221456/myfile/part-00000"), Paths.get("myfile"))
 
-  it should " download files to a local path" in {
-    new TestSets {
-      when(transferManager.download("my-bucket", "spark/execution/201503221456/myfile/part-00000", new File("myfile"))).thenReturn(fileDownload)
-      when(transferManager.download("my-bucket", "spark/execution/201503221456/myfile2/part-00000", new File("myfile2"))).thenReturn(fileDownload)
-
-      val filesToCopy = Map("key" -> (new S3NativeFile("my-bucket", "spark/execution/201503221456/myfile/part-00000"), Paths.get("myfile")),
-        "key2" -> (new S3NativeFile("my-bucket", "spark/execution/201503221456/myfile2/part-00000"), Paths.get("myfile2")))
-
-      val result = sparkS3Services.copyResultsToLocalPath(filesToCopy, testFolder.toPath)
-      verify(fileDownload, times(2)).waitForCompletion()
-      verify(transferManager, times(2)).download(any[String], any[String], any[File])
-
-      val successFile = testFolder.toPath.resolve("downloads.success")
-      Files.exists(successFile) should be(true)
-      result("key") should be(Paths.get("myfile"))
-      result("key2") should be(Paths.get("myfile2"))
-      result should contain key "downloads.success"
+      whenReady(futureResult) { download =>
+        verify(fileDownload).waitForCompletion()
+        verify(transferManager).download(any[String], any[String], any[File])
+      }
     }
   }
+
 }
