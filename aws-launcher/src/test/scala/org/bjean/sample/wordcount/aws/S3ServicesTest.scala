@@ -56,10 +56,12 @@ class S3ServicesTest extends FlatSpec with MockitoSugar with TemporaryFolder wit
     new TestSets {
       when(transferManager.upload(Matchers.eq("my-bucket"), any[String], any[File])).thenReturn(fileUpload)
 
-      sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
-
-      verify(transferManager).upload(Matchers.eq("my-bucket"), any[String], any[File])
-      verify(config).getString("aws.s3.bucket")
+      val futureResult = sparkS3Services.copyExecutionContextFileToS3(Paths.get("myfile"))
+      
+      whenReady(futureResult)  { s3File =>
+        verify(transferManager).upload(Matchers.eq("my-bucket"), any[String], any[File])
+        verify(config).getString("aws.s3.bucket")
+      }
     }
   }
 
