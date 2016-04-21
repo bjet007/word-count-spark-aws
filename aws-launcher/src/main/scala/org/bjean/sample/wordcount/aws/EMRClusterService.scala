@@ -16,6 +16,7 @@ object EMRClusterService {
   val CONFIG_AWS_CLUSTER_MASTER_INSTANCE_TYPE = "aws.cluster.masterInstanceType"
   val CONFIG_AWS_CLUSTER_SLAVE_INSTANCE_TYPE = "aws.cluster.slaveInstanceType"
   val CONFIG_AWS_CLUSTER_KEEP_ALIVE = "aws.cluster.keepAlive"
+  
 }
 
 
@@ -50,16 +51,21 @@ class EMRClusterService(elasticMapReduceClient: AmazonElasticMapReduce, config: 
       .withSteps(stepsConfigs.asJavaCollection)
   }
 
-  def getStepStatus(jobFlowId: String): List[EmrStepState] = {
-    val result: ListStepsResult = elasticMapReduceClient.listSteps(new ListStepsRequest().withClusterId(jobFlowId))
-    if (result == null) {
-      throw new IllegalArgumentException(String.format("Job flow Id [%s] doesn't not exist", jobFlowId))
+  def getStepStatus(jobFlowId: String): Future[List[EmrStepState]] = {
+    val futureSteps = Future {
+       elasticMapReduceClient.listSteps(new ListStepsRequest().withClusterId(jobFlowId))
     }
-    if (result.getSteps == null) {
-      throw new IllegalArgumentException(String.format("Job flow Id [%s] does not have any steps", jobFlowId))
-    }
-    import collection.JavaConverters._
-    val r = for (s <- result.getSteps.asScala) yield EmrStepState.fromString(s.getStatus.getState)
-    r.flatten.toList
+    
+    futureSteps.flatMap( result => Future {
+        if (result == null) {
+          throw new IllegalArgumentException(String.format("Job flow Id [%s] doesn't not exist", jobFlowId))
+        }
+        if (result.getSteps == null) {
+          throw new IllegalArgumentException(String.format("Job flow Id [%s] does not have any steps", jobFlowId))
+        }
+        import collection.JavaConverters._
+        val r = for (s <- result.getSteps.asScala) yield EmrStepState.fromString(s.getStatus.getState)
+        r.flatten.toList
+    })
   }
 }

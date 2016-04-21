@@ -155,7 +155,7 @@ class EMRClusterServiceTest extends FunSuite with MockitoSugar with ScalaFutures
       .thenReturn(listStepResult)
     val result = sparkClusterService.getStepStatus(jobFlowId)
 
-    result shouldBe List(Completed)
+    result.futureValue shouldBe List(Completed)
   }
 
   test("A call to getStepStatus(), will return EmrStepState for all Step") {
@@ -172,6 +172,6 @@ class EMRClusterServiceTest extends FunSuite with MockitoSugar with ScalaFutures
       .thenReturn(listStepResult)
     val result = sparkClusterService.getStepStatus(jobFlowId)
 
-    result shouldBe List(Completed, Interrupted)
+    result.futureValue shouldBe List(Completed, Interrupted)
   }
 }
